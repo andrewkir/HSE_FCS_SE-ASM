@@ -129,7 +129,7 @@ int main() {
     //Подсчет суммы, которую наследники получили на руки, и её проверка
 #pragma omp parallel default(none)
     {
-#pragma omp single nowait
+#pragma omp single
         funcTree(0, 0, 7);
     }
 }
