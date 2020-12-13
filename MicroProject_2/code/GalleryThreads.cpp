@@ -47,6 +47,7 @@ public:
     }
 
     void startExploring(WatchMan &watchMan);
+
     bool isWaiting = false;
 private:
     string name;
@@ -84,7 +85,7 @@ public:
         if (paintings[index] != 0) {
             paintings[index]--;
         }
-        if(!paintingsQueue[index].empty()){
+        if (!paintingsQueue[index].empty()) {
             paintingsQueue[index].front()->isWaiting = false;
             paintingsQueue[index].pop();
         }
@@ -92,15 +93,21 @@ public:
         cv[index].notify_all();
     }
 
-    //Получение количество посетителей, смотрящих определенную картину
-    int getVisitorsNumAt(int index) {
+    //Получение количество посетителей, смотрящих определенную картину.
+    //Если их меньше 10, до увеличиваем счетчик посетителей для данной картины.
+    bool getVisitorsNumAndAddVisitor(int index) {
         locker.lock();
-        int result = paintings[index];
-        locker.unlock();
-        return result;
+        if (paintings[index] >= 10) {
+            locker.unlock();
+            return false;
+        } else {
+            locker.unlock();
+            paintingAddVisitor(index);
+            return true;
+        }
     }
 
-    void addVisitorToPaintingQueue(Visitor &visitor, int index){
+    void addVisitorToPaintingQueue(Visitor &visitor, int index) {
         locker.lock();
         paintingsQueue[index].push(&visitor);
         locker.unlock();
@@ -108,7 +115,7 @@ public:
 
 private:
     int paintings[5] = {0};
-    queue<Visitor*> paintingsQueue[5];
+    queue<Visitor *> paintingsQueue[5];
 };
 
 Gallery mainGallery;
@@ -141,7 +148,7 @@ public:
     void isActivePeople() {
         while (true) {
             locker.lock();
-            if (visitorsQueue.empty() && amountInGallery == 0){
+            if (visitorsQueue.empty() && amountInGallery == 0) {
                 this_thread::sleep_for(chrono::seconds(2));
                 if (visitorsQueue.empty() && amountInGallery == 0) return;
             }
@@ -175,8 +182,6 @@ void Visitor::startExploring(WatchMan &_watchMan) {
 
 //Метод просмотра текущей картины посетителем и переход к следующей картине
 void Visitor::lookAtCurrentPainting() {
-    mainGallery.paintingAddVisitor(currentPainting);
-
     locker.lock();
     cout << GetName() << " now looking at painting N" << to_string(currentPainting) << endl;
     locker.unlock();
@@ -201,7 +206,7 @@ void Visitor::moveToNextPainting() {
         return;
     }
     currentPainting = getNextPainting();
-    if (mainGallery.getVisitorsNumAt(currentPainting) > 10) {
+    if (!mainGallery.getVisitorsNumAndAddVisitor(currentPainting)) {
         locker.lock();
         cout << GetName() << " in the queue to painting N" << currentPainting << endl;
         locker.unlock();
@@ -210,7 +215,7 @@ void Visitor::moveToNextPainting() {
         mainGallery.addVisitorToPaintingQueue(*this, currentPainting);
 
         unique_lock<std::mutex> lck(locker);
-        while(isWaiting) {
+        while (isWaiting) {
             cv[currentPainting].wait(lck);
         }
         lck.unlock();
@@ -221,14 +226,14 @@ void Visitor::moveToNextPainting() {
 }
 
 int main() {
-    cout<<"Enter amount of visitors:"<<endl;
+    cout << "Enter amount of visitors:" << endl;
     int amount;
-    while(true){
+    while (true) {
         cin >> amount;
-        if(amount <= 0) cout<<"Try again, amount must be > 0"<<endl;
+        if (amount <= 0) cout << "Try again, amount must be > 0" << endl;
         else break;
     }
-    cout<<endl;
+    cout << endl;
     srand(static_cast<unsigned int>(time(0)));
     string names[] = {"Adam", "John", "Max", "Andrew", "Alex", "Bill", "Mary", "Ann", "Kate", "William", "Ella", "Lucy",
                       "Kinsley", "Kendall"};
